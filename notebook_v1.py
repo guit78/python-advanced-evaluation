@@ -4,8 +4,15 @@
 """
 an object-oriented version of the notebook toolbox
 """
+from types import CellType
+from notebook_v0 import load_ipynb, save_ipynb
 
-class CodeCell:
+
+class Cell:
+    def __init__(self):
+        pass
+
+class CodeCell(Cell):
     r"""A Cell of Python code in a Jupyter notebook.
 
     Args:
@@ -33,9 +40,12 @@ class CodeCell:
     """
 
     def __init__(self, ipynb):
-        pass
+        self.execution_count = ipynb['execution_count']
+        self.id = ipynb['id']
+        self.source = ipynb['source']
+        self.type = ipynb['cell_type']
 
-class MarkdownCell:
+class MarkdownCell(Cell):
     r"""A Cell of Markdown markup in a Jupyter notebook.
 
     Args:
@@ -63,7 +73,10 @@ class MarkdownCell:
     """
 
     def __init__(self, ipynb):
-        pass
+        self.id = ipynb['id']
+        self.source = ipynb['source']
+        self.type = ipynb['cell_type']
+        
 
 class Notebook:
     r"""A Jupyter Notebook.
@@ -93,9 +106,17 @@ class Notebook:
             >>> isinstance(nb.cells[0], Cell)
             True
     """
-
     def __init__(self, ipynb):
-        pass
+        self.version = f"{ipynb['nbformat']}.{ipynb['nbformat_minor']}"
+        
+        list_of_cells = []
+        for cell in ipynb['cells']:
+            if cell['cell_type'] == 'markdown':
+                list_of_cells.append(MarkdownCell(cell))
+            if cell['cell_type'] == 'code':
+                list_of_cells.append(CodeCell(cell))
+        self.cells = list_of_cells 
+
 
     @staticmethod
     def from_file(filename):
@@ -107,7 +128,9 @@ class Notebook:
             >>> nb.version
             '4.5'
         """
-        pass
+        data = load_ipynb(filename)
+        return Notebook(data)
+
 
     def __iter__(self):
         r"""Iterate the cells of the notebook.
@@ -122,6 +145,7 @@ class Notebook:
             a23ab5ac
         """
         return iter(self.cells)
+
 
 class PyPercentSerializer:
     r"""Prints a given Notebook in py-percent format.
@@ -145,12 +169,33 @@ class PyPercentSerializer:
             # Goodbye! 👋
     """
     def __init__(self, notebook):
-        pass
+        self.notebook = notebook
 
     def to_py_percent(self):
         r"""Converts the notebook to a string in py-percent format.
         """
-        pass
+        script = ""
+        for cell in self.notebook:
+            if isinstance(cell, MarkdownCell):
+                if cell == self.notebook.cells[0]:
+                    script += "# %% [markdown]\n# "
+                    script += "# ".join(cell.source)
+                    script += "\n"
+                else:
+                    script += "\n# %% [markdown]\n# "
+                    script += "# ".join(cell.source)
+                    script += "\n"
+
+            elif isinstance(cell, CodeCell):
+                if cell == self.notebook.cells[0]:
+                    script += "# %%\n"
+                    script += "".join(cell.source)
+                    script += "\n"
+                else:
+                    script += "\n# %%\n"
+                    script += "".join(cell.source)
+                    script += "\n"
+        return script
 
     def to_file(self, filename):
         r"""Serializes the notebook to a file
@@ -164,8 +209,11 @@ class PyPercentSerializer:
                 >>> s = PyPercentSerializer(nb)
                 >>> s.to_file("samples/hello-world-serialized-py-percent.py")
         """
-        pass
-class Serializer:
+        with open(filename, 'w') as file:
+            file.write(self.to_py_percent())
+
+
+class Serializer(Notebook):
     r"""Serializes a Jupyter Notebook to a file.
 
     Args:
@@ -199,7 +247,7 @@ class Serializer:
     """
 
     def __init__(self, notebook):
-        pass
+        self.notebook = notebook
 
     def serialize(self):
         r"""Serializes the notebook to a JSON object
@@ -207,7 +255,20 @@ class Serializer:
         Returns:
             dict: a dictionary representing the notebook.
         """
-        pass
+        dic = {}
+        dic['cells'] = []
+        for cell in self.notebook:
+            if isinstance(cell, CodeCell):
+                new_cell = {'cell_type': cell.type, 'execution_count' : cell.execution_count, 'id': cell.id, 'metadata':{}, 'outputs':[], 'source': cell.source}
+                dic['cells'].append(new_cell)
+            elif isinstance(cell, MarkdownCell):
+                new_cell = {'cell_type': cell.type, 'id': cell.id, 'metadata':{}, 'source': cell.source}
+                dic['cells'].append(new_cell)
+        dic['metadata'] = {}
+        dic['nbformat'] = int(self.notebook.version[0])
+        dic['nbformat_minor'] = int(self.notebook.version[2])     
+        return dic 
+        
 
     def to_file(self, filename):
         r"""Serializes the notebook to a file
@@ -227,9 +288,9 @@ class Serializer:
                 b777420a
                 a23ab5ac
         """
-        pass
+        save_ipynb(self.serialize(), filename)
 
-class Outliner:
+class Outliner(Notebook):
     r"""Quickly outlines the strucure of the notebook in a readable format.
 
     Args:
@@ -259,4 +320,24 @@ class Outliner:
         Returns:
             str: a string representing the outline of the notebook.
         """
-        pass
+        script = f"Jupyter Notebook v{self.notebook.version}"
+        for cell in self.notebook.cells:
+            if isinstance(cell, MarkdownCell):
+                script += f"\n└─▶ Markdown cell #{cell.id}\n"
+                if len(cell.source) > 1:
+                    script += f"    ┌  {cell.source[0]}"
+                    for k in range(1, len(cell.source)-1):
+                        script += f"    │  {cell.source[k]}"
+                    script += f"    └  {cell.source[-1]}"
+                else:
+                    script += f"    | {cell.source[0]}\n"
+            elif isinstance(cell, CodeCell):
+                script += f"\n└─▶ Code cell #{cell.id} ({cell.execution_count})\n"
+                if len(cell.source) > 1:
+                    script += f"    ┌  {cell.source[0]}"
+                    for k in range(1, len(cell.source)):
+                        script += f"    │  {cell.source[k]}"
+                    script += f"    └  {cell.source[-1]}"
+                else:
+                    script += f"    | {cell.source[0]}"
+        return script
