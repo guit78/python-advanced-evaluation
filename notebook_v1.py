@@ -9,8 +9,10 @@ from notebook_v0 import load_ipynb, save_ipynb
 
 
 class Cell:
-    def __init__(self):
-        pass
+    def __init__(self, ipynb):
+        self.id = ipynb['id']
+        self.source = ipynb['source']
+
 
 class CodeCell(Cell):
     r"""A Cell of Python code in a Jupyter notebook.
@@ -41,9 +43,8 @@ class CodeCell(Cell):
 
     def __init__(self, ipynb):
         self.execution_count = ipynb['execution_count']
-        self.id = ipynb['id']
-        self.source = ipynb['source']
         self.type = ipynb['cell_type']
+        super().__init__(ipynb)
 
 class MarkdownCell(Cell):
     r"""A Cell of Markdown markup in a Jupyter notebook.
@@ -73,9 +74,8 @@ class MarkdownCell(Cell):
     """
 
     def __init__(self, ipynb):
-        self.id = ipynb['id']
-        self.source = ipynb['source']
         self.type = ipynb['cell_type']
+        super().__init__(ipynb)
         
 
 class Notebook:

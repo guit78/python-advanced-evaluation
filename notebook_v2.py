@@ -342,13 +342,3 @@ class PyPercentLoader:
             i += 1
         
         return Notebook(self.version, cells)
-
-#nb = NotebookLoader("samples/hello-world.ipynb").load()
-#PyPercentSerializer(nb).to_file("samples/hello-world-py-percent.py")
-
-#with open("samples/hello-world-py-percent.py", 'r') as file:#
-    #data = file.read()
-#lines = data.split('\n')
-#print(lines)
-
-
